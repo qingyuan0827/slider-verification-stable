@@ -1,4 +1,4 @@
-package org.selenium.verify.juejin;
+package kuaidaili;
 
 import org.slf4j.MDC;
 
@@ -14,6 +14,8 @@ import java.util.concurrent.*;
 public class Main {
     private static final int maxTry = 100;
     private static final String logDir = System.getProperty("user.dir") + File.separator + "logs" + File.separator;
+
+    //private static String resultFilePath = logDir + "result.xlsx";
 
     static List<Map<String,Object>> result = new ArrayList<>();
     public static void main(String[] args) throws Exception {

@@ -1,20 +1,27 @@
-package org.selenium.verify.juejin;
+package chuanglan;
 
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
-import org.openqa.selenium.*;
 import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 public class SliderAutomatic implements Closeable {
@@ -27,8 +34,7 @@ public class SliderAutomatic implements Closeable {
     CrackSlider cs;
 
     // 浏览器缓存地址
-    private String browserTempDirect = "C:\\Users\\yuan\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\juejin";
-    private String targetUrl = "https://juejin.cn/";
+    private String browserTempDirect = "C:\\Users\\yuan\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\chuanglan";
 
     String bgImgDir;
     long startTime;
@@ -43,6 +49,7 @@ public class SliderAutomatic implements Closeable {
     private static int accessFrequencyErrorCount;
 
     private int vcodeBtnDisableCheckedCount;
+    private String targetUrl = "https://www.chuanglan.com/control/regist?utm_source=baiduPC-PPC&sdclkid=A5f615fiASD6A5qpAsq&bd_vid=10022505128951217736&regist_source=1";
 
     public SliderAutomatic(int maxCount, String logDir) {
         bgImgDir = logDir + "img_" + Thread.currentThread().getName() + File.separator;
@@ -86,7 +93,7 @@ public class SliderAutomatic implements Closeable {
         log.info("开始登录");
         init();
         Random random = new Random();
-        openRegistrationWindow();
+        //openRegistrationWindow();
         while (tryCount++ < maxCount) {
             inputTelNumber();
             long sleepMillis = random.nextInt(3000, 4000) + successCount;
@@ -107,10 +114,14 @@ public class SliderAutomatic implements Closeable {
             log.info("完成" + tryCount + "次滑动验证, 获取" + fetchNumberCount + "次手机号，成功" + successCount
                     + "次，" + elaspedTimeStr + ", 总共成功" + totalSuccessCount + "次");
             if (Strings.isNullOrEmpty(fetchedNumber) && vcodeBtnDisableCheckedCount > 0) {
-                closeRegistrationWindow();
-                openRegistrationWindow();
+//                closeRegistrationWindow();
+//                openRegistrationWindow();
                 vcodeBtnDisableCheckedCount = 0;
             }
+            // 刷新页面
+            close();
+            init();
+            //driver.navigate().refresh();
             Thread.sleep(100);
         }
         return elaspedTimeStr;
@@ -147,6 +158,10 @@ public class SliderAutomatic implements Closeable {
         // 设置后台静默模式启动浏览器
         options.addArguments("--headless=new");
 
+        // 设置代理服务器**********************************
+        //options.addArguments("--proxy-server=http://v871.kdltps.com:15818");
+        // 设置代理服务器**********************************
+
         log.info("设置请求头完成");
         driver = new ChromeDriver(options);
 
@@ -163,57 +178,83 @@ public class SliderAutomatic implements Closeable {
         WebElement loginButtonElement = driver.findElement(By.className("login-button"));
         loginButtonElement.click();
 
-        driver.manage().timeouts().implicitlyWait(java.time.Duration.ofSeconds(2));
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2));
     }
 
     private void inputTelNumber() throws Exception {
-        driver.switchTo().defaultContent();
-        // 找到并点击下拉框以展开选项
-        WebElement dropdownElement = driver.findElement(By.cssSelector(".dropdown-input-container .arrow"));
-        dropdownElement.click();
-        // 等待下拉选项加载完成（可以使用显式等待）
-        WebDriverWait waitDropdown = new WebDriverWait(driver, java.time.Duration.ofSeconds(3));
-        waitDropdown.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".dropdown-pannel")));
 
-        // 找到并点击“855”选项
-        WebElement kuwaitOption = driver.findElement(By.xpath("//*[@id=\"juejin\"]/div[2]/div[3]/form/div[2]/div[1]/div[1]/div[1]/div/div[1]/div/div[2]/ul/li[91]"));
-        kuwaitOption.click();
+        driver.switchTo().defaultContent();
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
+
+        // 输入855，并按tab键切换到手机号输入框
+        WebElement searchInput = wait.until(ExpectedConditions.elementToBeClickable(
+                By.cssSelector("input.ant-select-selection-search-input")
+        ));
+        new Actions(driver)
+                .click(searchInput)
+                .keyDown(Keys.CONTROL)
+                .sendKeys("a")
+                .keyUp(Keys.CONTROL)
+                .sendKeys(Keys.DELETE)
+                .sendKeys("855")
+                .perform();
+
+        // 等待选项加载并点击
+        WebElement option = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//div[contains(@class,'ant-select-item-option') and contains(.,'855')]")
+        ));
+
+        new Actions(driver)
+                .moveToElement(option)
+                .pause(Duration.ofMillis(300)) // 等待动画效果
+                .click()
+                .perform();
+
+        Thread.sleep(1000);
+
         // 定位手机号输入框元素并输入内容
-        //Thread.sleep(1000);
-        Thread.sleep(100);
-        WebElement phoneElement = driver.findElement(By.cssSelector("input[name='mobile']"));
-        if (Strings.isNullOrEmpty(fetchedNumber)) {
-            fetchedNumber = apiClient.fetchPhoneNumber();
+        WebElement phoneElement = wait.until(ExpectedConditions.elementToBeClickable(
+                By.cssSelector("input.ant-input.ant-input-lg#phone")
+        ));
+        //if (Strings.isNullOrEmpty(fetchedNumber)) {
+            fetchedNumber = apiClient.fetchNumber();
             fetchNumberCount++;
-        }
+        //}
         //String number = apiClient.fetchWithExistedNumber("383429409");
         // 使用键盘操作清空输入框内容
         phoneElement.sendKeys(Keys.CONTROL + "a");
+        Thread.sleep(1000);
         phoneElement.sendKeys(Keys.DELETE);
-        Thread.sleep(100);
+        Thread.sleep(1000);
         phoneElement.sendKeys(fetchedNumber);
         log.info("输入手机号: " + fetchedNumber);
 
-        driver.manage().timeouts().implicitlyWait(java.time.Duration.ofSeconds(1));
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(1));
     }
 
     private void openSliderFrame() throws Exception {
         // 定位“获取验证码”链接并点击
-        WebDriverWait wait = new WebDriverWait(driver, java.time.Duration.ofSeconds(6));
-        WebElement getCodeElement = wait.until(ExpectedConditions.presenceOfElementLocated(By.className("send-vcode-btn")));
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
+        WebElement getCodeElement = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//button[contains(@class,'ant-btn-block')]//span[text()='获取验证码']/..")
+        ));
         // 检查按钮是否被禁用
         while (getCodeElement.getAttribute("disabled") != null) {
             vcodeBtnDisableCheckedCount++;
             log.info("按钮被禁用，等待1分钟");
             Thread.sleep(60000); // 等待1分钟
-            getCodeElement = wait.until(ExpectedConditions.presenceOfElementLocated(By.className("send-vcode-btn")));
+            getCodeElement = wait.until(ExpectedConditions.presenceOfElementLocated(
+                    By.id("sendvcode_btn")
+            ));
         }
         getCodeElement.click();
+        Thread.sleep(1000);
         log.info("点击获取验证码链接");
 
         try {
             // 使用显式等待，等待 iframe 元素出现
-            WebElement iframeElement = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath("//*[@id='captcha_container']/iframe")));
+            WebElement iframeElement = wait.until(ExpectedConditions.presenceOfElementLocated(
+                    By.id("tcaptcha_iframe_dy")));
             // 切换到 iframe
             driver.switchTo().frame(iframeElement);
             if (accessFrequencyErrorCount > 0) {
@@ -221,22 +262,23 @@ public class SliderAutomatic implements Closeable {
                 accessFrequencyErrorCount = 0;
             }
         } catch (TimeoutException e) {
-            //throw e;
+            fetchVerifyCode(1);
+            throw e;
             // 检查是否存在“访问太频繁，请稍后再试”的错误信息
-            List<WebElement> errorElements = driver.findElements(By.className("error-text"));
-            if (!errorElements.isEmpty()) {
-                if (++accessFrequencyErrorCount % 3 == 0) {
-                    throw new Exception("访问太频繁，请稍后再试。");
-                } else {
-                    int waitMills = 1000 * 60 * 5;
-                    //int waitMills = 1000 * 3; // 手工切换热点ip，则无需等待太长时间
-                    log.info("检测到访问太频繁错误信息" + accessFrequencyErrorCount + "次，等待" + waitMills/1000
-                            + "秒，已完成滑动验证" + successCount + "/" + tryCount + "。");
-                    // 可以在这里添加适当的处理逻辑，比如等待一段时间后重试
-                    Thread.sleep(waitMills); // 等待5分支后重试
-                    openSliderFrame();
-                }
-            }
+//            List<WebElement> errorElements = driver.findElements(By.className("error-text"));
+//            if (!errorElements.isEmpty()) {
+//                if (++accessFrequencyErrorCount % 3 == 0) {
+//                    throw new Exception("访问太频繁，请稍后再试。");
+//                } else {
+//                    //int waitMills = 1000 * 60 * 5;
+//                    int waitMills = 1000 * 3; // 手工切换热点ip，则无需等待太长时间
+//                    log.info("检测到访问太频繁错误信息" + accessFrequencyErrorCount + "次，等待" + waitMills/1000
+//                            + "秒，已完成滑动验证" + successCount + "/" + count + "。");
+//                    // 可以在这里添加适当的处理逻辑，比如等待一段时间后重试
+//                    Thread.sleep(waitMills); // 等待5分支后重试
+//                    openSliderFrame();
+//                }
+//            }
         }
     }
 
@@ -251,7 +293,7 @@ public class SliderAutomatic implements Closeable {
         // 点击 close-btn 元素
         closeButton.click();
 
-        driver.manage().timeouts().implicitlyWait(java.time.Duration.ofSeconds(2));
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2));
     }
 
     /**
@@ -298,9 +340,20 @@ public class SliderAutomatic implements Closeable {
 
         while (true) {
             try {
-                WebElement element = driver.findElement(By.id("captcha_verify_image"));
-                refreshBg(false);
-                getSliderImage(element);
+                //refreshBg(false);
+                getSliderImage();
+                // 调用方法，判断 iframe 的 opacity 是否为 0
+                if (isIframeOpacityZero()){
+                    log.info("滑动校验通过!");
+                    return fetchVerifyCode(1); // 最多重试两次
+                } else {
+                    // 使用显式等待，等待 iframe 元素出现
+                    WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
+                    WebElement iframeElement = wait.until(ExpectedConditions.presenceOfElementLocated(
+                            By.id("tcaptcha_iframe_dy")));
+                    // 切换到 iframe
+                    driver.switchTo().frame(iframeElement);
+                }
             } catch (NoSuchElementException e) {
                 log.info("滑动校验通过!", e);
                 return fetchVerifyCode(1); // 最多重试两次
@@ -313,6 +366,25 @@ public class SliderAutomatic implements Closeable {
                 startRefreshBgTime = System.currentTimeMillis();
             }
         }
+    }
+
+    /**
+     * 判断指定 iframe 的 opacity 是否为 0
+     *
+     * @return 如果 opacity 为 0，返回 true；否则返回 false
+     */
+    public boolean isIframeOpacityZero() {
+        // 切换到默认内容（确保操作在顶层文档）
+        driver.switchTo().defaultContent();
+
+        // 找到 tcaptcha_transform_dy 元素
+        WebElement transformDiv = driver.findElement(By.id("tcaptcha_transform_dy"));
+
+        // 获取 tcaptcha_transform_dy 的 opacity 值
+        String opacityValue = transformDiv.getCssValue("opacity");
+
+        // 判断 opacity 是否为 0
+        return opacityValue.equals("0");
     }
 
     private void refreshBg(boolean force) {
@@ -333,19 +405,71 @@ public class SliderAutomatic implements Closeable {
         }
     }
 
-    public void getSliderImage(WebElement element) throws InterruptedException {
+    public void moveSlider(WebElement element) {
+        // 等待滑动轨道元素出现
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        WebElement track = wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("div#nc_1_n1t.nc_scale")
+        ));
+
+        // 获取滑动轨道的宽度
+        int trackWidth = track.getSize().getWidth();
+        System.out.println("滑动轨道的宽度为: " + trackWidth + "px");
+
+
+        // 等待滑块元素出现
+        WebElement slider = wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("span#nc_1_n1z.btn_slide")
+        ));
+
+        cs.slowly(driver, slider, trackWidth);
+
+        try {
+            // 让当前线程暂停执行3秒
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            // 处理线程被中断的情况
+            e.printStackTrace();
+        }
+    }
+
+    public void getSliderImage() throws Exception {
         WebDriverWait wait = new WebDriverWait(driver, java.time.Duration.ofSeconds(6));
         String img1Path = bgImgDir + "img1.jpg";
         String img2Path = bgImgDir + "img2.jpg";
 
-        String img1 = element.getAttribute("src");
-        WebElement imgSlide = wait.until(ExpectedConditions.presenceOfElementLocated(By.id("captcha-verify_img_slide")));
-        String img2 = imgSlide.getAttribute("src");
+        // 定位验证码背景元素
+        WebElement element = new WebDriverWait(driver, Duration.ofSeconds(10))
+                .until(ExpectedConditions.presenceOfElementLocated(
+                        By.xpath("//div[@id='slideBg']")
+                ));
+
+        // 获取并处理样式属性
+        String style = element.getAttribute("style");
+        style = style.replace("&quot;", "\""); // 处理HTML转义字符
+
+        // 正则匹配图片URL
+        String regex = "background-image:\\s*url\\(\"(.*?)\"\\)";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(style);
+        String img1 = "";
+
+        if (matcher.find()) {
+            img1 = matcher.group(1)
+                    .replace("&amp;", "&"); // 处理URL编码
+        } else {
+            log.error("未找到背景图片 URL");
+        }
+
+        // 提取 URL 地址
+        String img2 = getSecondBackgroundUrl();
+
         //String img2 = driver.findElement(By.id("captcha-verify_img_slide")).getAttribute("src");
         if (img2 != null && !img2.isEmpty()) {
             log.info("滑块验证图片下载路径: " + img2);
             //cs.downloadImage(img2, Paths.get("src", "main", "resources", bgImgDir, "img2.jpg"));
             cs.downloadImage(img2, Path.of(img2Path));
+            //cropImage(new File(img2), new File(img2));
         }
 
         if (img1 != null && !img1.isEmpty()) {
@@ -355,8 +479,7 @@ public class SliderAutomatic implements Closeable {
             try {
                 // 准备方法需要的入参
                 // 1、找到滑动按钮位置
-                element = driver.findElement(By.xpath("//*[@id=\"vc_captcha_box\"]/div/div/div[4]/div/div[2]/div[2]"));
-
+                element = driver.findElement(By.xpath("//div[@class='tc-fg-item tc-slider-normal']"));
                 // 2、图片位置（相对当前项目）
                 //String imgPath = "img/img1.jpg";
 
@@ -368,18 +491,19 @@ public class SliderAutomatic implements Closeable {
                 int webWidth = 340;
 
                 // 5、原图片宽度
-                int rawWidth = 552;
+                int rawWidth = 672;
                 //int rawWidth = 518;
 
                 // 调用方法获取返回的移动距离
-                //double dis = cs.getPos(element, img1Path, gapWidth, webWidth, rawWidth);
-                double dis = cs.match(element, img1Path, img2Path, webWidth, rawWidth);
-                dis = dis + 20;
+                double dis = cs.getPos(element, img1Path, gapWidth, webWidth, rawWidth);
+                //double dis = cs.match(element, img1Path, img2Path, webWidth, rawWidth);
+                //dis = dis + 20;
 
                 // 打印一下移动距离
                 log.info("dis=" + dis);
 
-                cs.slowly(driver, element, dis);
+                //cs.slowly(driver, element, dis);
+                cs.quicklyMove(driver, element, dis);
 
                 try {
                     // 让当前线程暂停执行3秒
@@ -404,5 +528,64 @@ public class SliderAutomatic implements Closeable {
         }
     }
 
+    public String getSecondBackgroundUrl() {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
+        // 定位第一个tc-fg-item元素
+        WebElement targetElement = wait.until(driver -> {
+            List<WebElement> elements = driver.findElements(By.cssSelector("div.tc-fg-item"));
+            if (elements.size() >= 0) {
+                // 根据样式特征验证第一个元素
+                return elements.get(1);
+            }
+            return null;
+        });
+
+        // 获取背景图片URL
+        String backgroundImage = targetElement.getCssValue("background-image");
+
+        // 提取纯净URL
+        return backgroundImage.replaceAll("^url\\(\"|\"\\)$", "").replace("&quot;", "\"");
+    }
+
+    public void cropImage(File sourceImage, File outputFile) throws Exception {
+        // CSS参数（从元素获取）
+        double bgPosX = -70.8333;
+        double bgPosY = -247.917;
+        double bgWidth = 345.06;
+        double bgHeight = 313.69;
+        double elementWidth = 60.7143;
+        double elementHeight = 60.7143;
+
+        // 加载原始图片
+        BufferedImage original = ImageIO.read(sourceImage);
+
+        // 计算实际裁剪坐标（考虑背景尺寸与图片实际尺寸的比例）
+        double scaleX = original.getWidth() / bgWidth;
+        double scaleY = original.getHeight() / bgHeight;
+
+        // 转换背景定位坐标到实际像素坐标
+        int actualX = (int) Math.round(-bgPosX * scaleX);
+        int actualY = (int) Math.round(-bgPosY * scaleY);
+
+        // 计算实际裁剪尺寸
+        int cropWidth = (int) Math.round(elementWidth * scaleX);
+        int cropHeight = (int) Math.round(elementHeight * scaleY);
+
+        // 边界检查
+        actualX = Math.max(0, Math.min(actualX, original.getWidth() - cropWidth));
+        actualY = Math.max(0, Math.min(actualY, original.getHeight() - cropHeight));
+
+        // 执行裁剪
+        BufferedImage cropped = original.getSubimage(
+                actualX,
+                actualY,
+                cropWidth,
+                cropHeight
+        );
+
+        // 保存结果
+        ImageIO.write(cropped, "jpg", outputFile);
+    }
 }
 
