@@ -1,4 +1,4 @@
-package org.selenium.verify.juejin;
+package org.selenium.verify.common;
 
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;

@@ -1,5 +1,6 @@
-package chuanglan;
+package org.selenium.verify.chuanglan;
 
+import org.selenium.verify.common.XlsxGenerator;
 import org.slf4j.MDC;
 
 import java.io.File;

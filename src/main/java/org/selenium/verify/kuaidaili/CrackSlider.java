@@ -1,4 +1,4 @@
-package kuaidaili;
+package org.selenium.verify.kuaidaili;
 
 import lombok.extern.slf4j.Slf4j;
 import org.opencv.core.*;

@@ -1,4 +1,4 @@
-package chuanglan;
+package org.selenium.verify.common;
 
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
@@ -27,7 +27,7 @@ public class APIClient {
     public static void main(String[] args) {
         try {
             APIClient client = new APIClient();
-            String response = client.fetchNumber();
+            String response = client.fetchPhoneNumber();
             if (response != null) {
                 JSONObject jsonResponse = new JSONObject(response);
                 int errno = jsonResponse.getInt("errno");
@@ -53,7 +53,7 @@ public class APIClient {
         }
     }
 
-    public String fetchNumber() throws Exception {
+    public String fetchPhoneNumber() throws Exception {
         String number = null;
         String response = httpGet(URL_GET_NUMBER + "?apikey=" + API_KEY + "&pid=" + PID + "&quhao=" + QUHAO);
         if (response != null) {

@@ -8,6 +8,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.selenium.verify.common.APIClient;
 
 import java.io.Closeable;
 import java.io.File;
@@ -266,8 +267,9 @@ public class SliderAutomatic implements Closeable {
         }
 
         try {
-            Integer errorCode = apiClient.getVerifyCode().getKey();
-            String codeMsg = apiClient.getVerifyCode().getValue();
+            Map.Entry<Integer, String> vCodeResponse = apiClient.getVerifyCode();
+            Integer errorCode = vCodeResponse.getKey();
+            String codeMsg = vCodeResponse.getValue();
             if (errorCode == 0 && !Strings.isNullOrEmpty(codeMsg)) {
                 fetchedNumber = "";
                 log.info(codeMsg);

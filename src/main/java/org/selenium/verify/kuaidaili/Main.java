@@ -1,5 +1,6 @@
-package kuaidaili;
+package org.selenium.verify.kuaidaili;
 
+import org.selenium.verify.common.XlsxGenerator;
 import org.slf4j.MDC;
 
 import java.io.File;
