@@ -1,4 +1,4 @@
-package org.selenium.verify.chuanglan;
+package org.selenium.verify.toursforfun;
 
 import org.selenium.verify.common.XlsxGenerator;
 import org.slf4j.MDC;
@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.concurrent.*;
 
 public class Main {
-    private static final int maxTry = 250;
+    private static final int maxTry = 10;
     private static final String logDir = System.getProperty("user.dir") + File.separator + "logs" + File.separator;
 
     //private static String resultFilePath = logDir + "result.xlsx";
@@ -40,7 +40,7 @@ public class Main {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10, threadFactory);
 
         // 提交任务，每隔 10 秒开始执行一个任务
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < 5; i++) {
             ScheduledFuture<Void> future = scheduler.schedule(new Task(i), i * 10, TimeUnit.SECONDS);
             //future.get(); // 等待任务完成（可选）
         }

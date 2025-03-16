@@ -1,4 +1,4 @@
-package org.selenium.verify.kuaidaili;
+package org.selenium.verify.ipfoxy;
 
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
@@ -6,19 +6,23 @@ import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.edge.EdgeDriver;
+import org.openqa.selenium.edge.EdgeOptions;
+import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.selenium.verify.common.APIClient;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 public class SliderAutomatic implements Closeable {
@@ -31,7 +35,7 @@ public class SliderAutomatic implements Closeable {
     CrackSlider cs;
 
     // 浏览器缓存地址
-    private String browserTempDirect = "C:\\Users\\yuan\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\kuaidaili";
+    private String browserTempDirect = "C:\\Users\\yuan\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\ipfoxy";
 
     String bgImgDir;
     long startTime;
@@ -46,7 +50,7 @@ public class SliderAutomatic implements Closeable {
     private static int accessFrequencyErrorCount;
 
     private int vcodeBtnDisableCheckedCount;
-    private String targetUrl = "https://www.kuaidaili.com/regist/";
+    private String targetUrl = "https://app.ipfoxy.com/registration";
 
     public SliderAutomatic(int maxCount, String logDir) {
         bgImgDir = logDir + "img_" + Thread.currentThread().getName() + File.separator;
@@ -106,10 +110,10 @@ public class SliderAutomatic implements Closeable {
                 if (tryCount % 2 == 0) {
                     fetchedNumber = "";
                 }
-                int waitMills = 1000 * 60 * 3;
+                int waitMills = 1000 * 60 * 1;
                 // 获取验证码失败，休眠1分钟
                 log.info("获取短信验证码失败，等待" + waitMills/1000 + "秒!");
-                Thread.sleep(waitMills); // 等待5分支后重试
+                Thread.sleep(waitMills);
             }
             long elapsedSec = (System.currentTimeMillis() - startTime) / 1000;
             long elapsedMin = elapsedSec / 60;
@@ -134,12 +138,12 @@ public class SliderAutomatic implements Closeable {
     @Override
     public void close() {
         if (driver != null) {
-            driver.quit();
+            //driver.quit();
         }
     }
 
     private void init() {
-        ChromeOptions options = new ChromeOptions();
+        EdgeOptions options = new EdgeOptions();
         options.addArguments("--remote-allow-origins=*");
         //String userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36";
         String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
@@ -160,14 +164,15 @@ public class SliderAutomatic implements Closeable {
 
         options.addArguments("--user-data-dir=" + browserTempDirect);
         // 设置后台静默模式启动浏览器
-        options.addArguments("--headless=new");
+        //options.addArguments("--headless=new");
 
         // 设置代理服务器**********************************
         //options.addArguments("--proxy-server=http://v871.kdltps.com:15818");
         // 设置代理服务器**********************************
 
         log.info("设置请求头完成");
-        driver = new ChromeDriver(options);
+        driver = new EdgeDriver(options);
+
         driver.manage().window().maximize();
         js = (JavascriptExecutor) driver;
         js.executeScript("window.scrollTo(1,100)");
@@ -187,30 +192,42 @@ public class SliderAutomatic implements Closeable {
     private void inputTelNumber() throws Exception {
 
         driver.switchTo().defaultContent();
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
 
-        // 找到并点击下拉框以展开选项
-        WebElement dropdownElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.className("select")
+        // 输入855，并按tab键切换到手机号输入框
+        WebElement searchInput = wait.until(ExpectedConditions.elementToBeClickable(
+                By.cssSelector("input.el-input__inner")
         ));
-        dropdownElement.click();
-        Thread.sleep(1000);
-        // 等待下拉选项加载完成（可以使用显式等待）
-        WebElement panel = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.className("popover2")
-        ));
+        new Actions(driver)
+                .click(searchInput)
+                .keyDown(Keys.CONTROL)
+                .sendKeys("a")
+                .keyUp(Keys.CONTROL)
+                .sendKeys(Keys.DELETE)
+                .sendKeys("855")
+                .perform();
 
-        // 找到并点击“855”选项
-        // 在面板中查找目标选项（柬埔寨）
-        WebElement option = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.xpath("//li[.//span[contains(text(), 'Cambodia')]]")
-        ));
-        // 点击选项
-        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", option);
+        // 等待选项加载并点击
+        WebElement option = new WebDriverWait(driver, Duration.ofSeconds(5))
+                .ignoring(NoSuchElementException.class)
+                .until(d -> d.findElement(By.xpath(
+                        "//li[contains(@class,'el-select-dropdown__item')]" +
+                                "//span[contains(text(),'柬埔寨(+855)')]"
+                )));
+//        new Actions(driver)
+//                .moveToElement(option)
+//                .pause(Duration.ofMillis(300)) // 等待动画效果
+//                .click()
+//                .perform();
+
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+        js.executeScript("arguments[0].click();", option);
         Thread.sleep(1000);
 
         // 定位手机号输入框元素并输入内容
-        WebElement phoneElement = driver.findElement(By.className("register-input"));
+        WebElement phoneElement = wait.until(ExpectedConditions.elementToBeClickable(
+                By.cssSelector("div.phone-content input.el-input__inner")
+        ));
         //if (Strings.isNullOrEmpty(fetchedNumber)) {
             fetchedNumber = apiClient.fetchPhoneNumber();
             fetchNumberCount++;
@@ -224,40 +241,38 @@ public class SliderAutomatic implements Closeable {
         phoneElement.sendKeys(fetchedNumber);
         log.info("输入手机号: " + fetchedNumber);
 
+        // 等待复选框元素可点击
+//        WebElement checkbox = wait.until(ExpectedConditions.elementToBeClickable(
+//                By.className("recaptcha-checkbox-borderAnimation")
+//        ));
+        // 勾选复选框
+//        checkbox.click();
+        new Actions(driver)
+                .keyDown(Keys.TAB)
+                .sendKeys(Keys.ENTER)
+                .perform();
+
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(1));
     }
 
     private void openSliderFrame() throws Exception {
         // 定位“获取验证码”链接并点击
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
-        WebElement getCodeElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.id("sendvcode_btn")
-        ));        // 检查按钮是否被禁用
+        WebElement getCodeElement = wait.until(ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button._btnWrapper_omztw_23._info_omztw_126.send-code-button span")
+        ));
+        // 检查按钮是否被禁用
         while (getCodeElement.getAttribute("disabled") != null) {
             vcodeBtnDisableCheckedCount++;
             log.info("按钮被禁用，等待1分钟");
-            Thread.sleep(60000); // 等待1分钟
+            Thread.sleep(1000*60); // 等待1分钟
             getCodeElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                    By.id("sendvcode_btn")
-            ));        }
+                    By.cssSelector("button._btnWrapper_omztw_23._info_omztw_126.send-code-button span")
+            ));
+        }
         getCodeElement.click();
         Thread.sleep(1000);
         log.info("点击获取验证码链接");
-
-        try {
-            // 使用显式等待，等待 iframe 元素出现
-            WebElement modalElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                    By.cssSelector("div.layui-layer.layui-layer-page")
-            ));
-            // 切换到 iframe
-            //driver.switchTo().frame(iframeElement);
-            if (accessFrequencyErrorCount > 0) {
-                log.info("重新正常执行，检测到访问太频繁错误信息" + accessFrequencyErrorCount + "次。");
-                accessFrequencyErrorCount = 0;
-            }
-        } catch (TimeoutException e) {
-            log.info("无需滑动校验!", e);
-        }
     }
 
     private void closeRegistrationWindow() {
@@ -314,75 +329,58 @@ public class SliderAutomatic implements Closeable {
 
 
     private boolean doSliderVerification() throws Exception {
+        long startRefreshBgTime = System.currentTimeMillis();
+        long timeout = 1 * 60 * 1000; // 2 minutes in milliseconds
+
         while (true) {
             try {
-                // 等待页面加载完成
-                WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-                WebElement element = driver.findElement(By.cssSelector("div.layui-layer.layui-layer-page"));
-
-                // 定位背景图片的 <canvas> 元素
-                WebElement canvasElement = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("div#captcha canvas:first-child")));
-                WebElement sliceElement = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("div#captcha canvas.block")));
-
-                // 使用 JavaScript 将 <canvas> 转换为 Base64 图片数据
-                String script = "return arguments[0].toDataURL('image/png').substring(22);";
-                String base64Image = (String) js.executeScript(script, canvasElement);
-                String base64ImageSlice = (String) js.executeScript(script, sliceElement);
-
-                // 检查 Base64 数据是否有效
-                if (base64Image == null || base64Image.isEmpty() || base64ImageSlice == null || base64ImageSlice.isEmpty()) {
-                    log.error("Base64 数据为空");
-                    return false;
-                }
-
-                // 将 Base64 数据解码为图片文件
-                byte[] imageBytes = Base64.getDecoder().decode(base64Image);
-                byte[] imageSliceBytes = Base64.getDecoder().decode(base64ImageSlice);
-
-                if (imageBytes == null || imageBytes.length == 0 || imageSliceBytes == null || imageSliceBytes.length == 0) {
-                    log.error("Base64 解码失败");
-                    return false;
-                }
-
-                String img1Path = bgImgDir + "img1.jpg";
-                String img2Path = bgImgDir + "img2.jpg";
-                Files.createDirectories(Path.of(img1Path).getParent());  // 创建 img 目录
-                try (FileOutputStream fos = new FileOutputStream(img1Path)) {
-                    fos.write(imageBytes);
-                }
-                try (FileOutputStream fos = new FileOutputStream(img2Path)) {
-                    fos.write(imageSliceBytes);
-                }
-
-                // 去掉透明区域
-                cs.removeTransparentArea(img2Path,img2Path);
-
-                getSliderImage(canvasElement);
+                //refreshBg(false);
+                //getSliderImage();
+                log.info("滑动校验通过!");
+                return fetchVerifyCode(1); // 最多重试两次
+                // 调用方法，判断 iframe 的 opacity 是否为 0
+//                if (isIframeOpacityZero()){
+//                    log.info("滑动校验通过!");
+//                    return fetchVerifyCode(1); // 最多重试两次
+//                } else {
+//                    // 使用显式等待，等待 iframe 元素出现
+//                    WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
+//                    WebElement iframeElement = wait.until(ExpectedConditions.presenceOfElementLocated(
+//                            By.id("tcaptcha_iframe_dy")));
+//                    // 切换到 iframe
+//                    driver.switchTo().frame(iframeElement);
+//                }
             } catch (NoSuchElementException e) {
-                // 检查是否存在“访问太频繁，请稍后再试”的错误信息
-                WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
-                WebElement errorElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                        By.cssSelector("span#vcode_err")
-                ));
-                if (errorElement.isDisplayed()) {
-                    if (++accessFrequencyErrorCount % 3 == 0) {
-                        throw new Exception("访问太频繁，请稍后再试。");
-                    } else {
-                        int waitMills = 1000 * 60 * 5;
-                        //int waitMills = 1000 * 3; // 手工切换热点ip，则无需等待太长时间
-                        log.info("检测到访问太频繁错误信息" + accessFrequencyErrorCount + "次，等待" + waitMills/1000
-                                + "秒，已完成滑动验证" + successCount + "/" + tryCount + "。");
-                        // 可以在这里添加适当的处理逻辑，比如等待一段时间后重试
-                        Thread.sleep(waitMills); // 等待5分支后重试
-                        openSliderFrame();
-                    }
-                } else {
-                    log.info("滑动校验通过!", e);
-                    return fetchVerifyCode(1); // 最多重试两次
-                }
+                log.info("滑动校验通过!", e);
+                return fetchVerifyCode(1); // 最多重试两次
                 //close();
             }
+            // 检查是否超时
+//            if (System.currentTimeMillis() - startRefreshBgTime > timeout) {
+//                log.info("1分钟内未通过滑块验证，调用 refreshBg(true)");
+//                refreshBg(true);
+//                startRefreshBgTime = System.currentTimeMillis();
+//            }
         }
+    }
+
+    /**
+     * 判断指定 iframe 的 opacity 是否为 0
+     *
+     * @return 如果 opacity 为 0，返回 true；否则返回 false
+     */
+    public boolean isIframeOpacityZero() {
+        // 切换到默认内容（确保操作在顶层文档）
+        driver.switchTo().defaultContent();
+
+        // 找到 tcaptcha_transform_dy 元素
+        WebElement transformDiv = driver.findElement(By.id("tcaptcha_transform_dy"));
+
+        // 获取 tcaptcha_transform_dy 的 opacity 值
+        String opacityValue = transformDiv.getCssValue("opacity");
+
+        // 判断 opacity 是否为 0
+        return opacityValue.equals("0");
     }
 
     private void refreshBg(boolean force) {
@@ -431,55 +429,159 @@ public class SliderAutomatic implements Closeable {
         }
     }
 
-    public void getSliderImage(WebElement element) {
-        try {
-            // 准备方法需要的入参
-            // 1、找到滑动按钮位置
-            //element = driver.findElement(By.xpath("//*[@id=\"vc_captcha_box\"]/div/div/div[4]/div/div[2]/div[2]"));
-            element = driver.findElement(By.className("sliderBox"));
-            WebElement iframeElement = driver.findElement(By.cssSelector("div.layui-layer.layui-layer-page"));
+    public void getSliderImage() throws Exception {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
+        String img1Path = bgImgDir + "img1.jpg";
+        String img2Path = bgImgDir + "img2.jpg";
 
-            // 2、图片位置（相对当前项目）
-//            String img1Path = "E:\\auto-register\\slider-verification\\src\\main\\resources\\img\\img1.jpg";
-//            String img2Path = "E:\\auto-register\\slider-verification\\src\\main\\resources\\img\\img2.jpg";
-            String img1Path = bgImgDir + "img1.jpg";
-            String img2Path = bgImgDir + "img2.jpg";
+        // 定位验证码背景元素
+        WebElement element = new WebDriverWait(driver, Duration.ofSeconds(10))
+                .until(ExpectedConditions.presenceOfElementLocated(
+                        By.xpath("//div[@id='slideBg']")
+                ));
 
-            // 3、缺口像素长宽（长宽必须一致）
-            //int gapWidth = 80;
-            int gapWidth = 40;
+        // 获取并处理样式属性
+        String style = element.getAttribute("style");
+        style = style.replace("&quot;", "\""); // 处理HTML转义字符
 
-            // 4、web图片宽度
-            int webWidth = 278;
+        // 正则匹配图片URL
+        String regex = "background-image:\\s*url\\(\"(.*?)\"\\)";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(style);
+        String img1 = "";
 
-            // 5、原图片宽度
-            int rawWidth = 280;
-            //int rawWidth = 518;
+        if (matcher.find()) {
+            img1 = matcher.group(1)
+                    .replace("&amp;", "&"); // 处理URL编码
+        } else {
+            log.error("未找到背景图片 URL");
+        }
 
-            // 调用方法获取返回的移动距离
-            //double dis = cs.getPos(element, img1Path, gapWidth, webWidth, rawWidth);
-            double dis = cs.match(iframeElement, element, img1Path, img2Path, webWidth, rawWidth);
-            //dis = dis - 5;
+        // 提取 URL 地址
+        String img2 = getSecondBackgroundUrl();
 
-            // 打印一下需要移动的距离
-            log.info("dis=" + dis);
+        //String img2 = driver.findElement(By.id("captcha-verify_img_slide")).getAttribute("src");
+        if (img2 != null && !img2.isEmpty()) {
+            log.info("滑块验证图片下载路径: " + img2);
+            //cs.downloadImage(img2, Paths.get("src", "main", "resources", bgImgDir, "img2.jpg"));
+            cs.downloadImage(img2, Path.of(img2Path));
+            //cropImage(new File(img2), new File(img2));
+        }
 
-            //cs.move(driver, element, getMoveSteps((int) dis));
-            //cs.simulateDragX(driver, element, dis);
-            cs.slowly(driver, element, dis);
-
+        if (img1 != null && !img1.isEmpty()) {
+            log.info("滑块背景图片下载路径: " + img1);
+            //cs.downloadImage(img1, Paths.get("src", "main", "resources", bgImgDir, "img1.jpg"));
+            cs.downloadImage(img1, Path.of(img1Path));
             try {
-                // 让当前线程暂停执行5秒
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                // 处理线程被中断的情况
-                e.printStackTrace();
+                // 准备方法需要的入参
+                // 1、找到滑动按钮位置
+                element = driver.findElement(By.xpath("//div[@class='tc-fg-item tc-slider-normal']"));
+                // 2、图片位置（相对当前项目）
+                //String imgPath = "img/img1.jpg";
+
+                // 3、缺口像素长宽（长宽必须一致）
+                //int gapWidth = 80;
+                int gapWidth = 80;
+
+                // 4、web图片宽度
+                int webWidth = 340;
+
+                // 5、原图片宽度
+                int rawWidth = 672;
+                //int rawWidth = 518;
+
+                // 调用方法获取返回的移动距离
+                double dis = cs.getPos(element, img1Path, gapWidth, webWidth, rawWidth);
+                //double dis = cs.match(element, img1Path, img2Path, webWidth, rawWidth);
+                //dis = dis + 20;
+
+                // 打印一下移动距离
+                log.info("dis=" + dis);
+
+                //cs.slowly(driver, element, dis);
+                cs.quicklyMove(driver, element, dis);
+
+                try {
+                    // 让当前线程暂停执行3秒
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    // 处理线程被中断的情况
+                    e.printStackTrace();
+                }
+                //driver.quit();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-            //driver.quit();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        } else {
+            log.error("未找到背景图片 URL，刷新背景图片");
+            // 定位“刷新”链接并点击
+//            WebElement getCodeElement = driver.findElement(By.className("vc-captcha-refresh"));
+//            getCodeElement.click();
+            WebElement refreshButton = driver.findElement(By.className("vc-captcha-refresh"));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", refreshButton);
+            // 让当前线程暂停执行3秒
+            Thread.sleep(300);
         }
     }
 
+    public String getSecondBackgroundUrl() {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
+        // 定位第一个tc-fg-item元素
+        WebElement targetElement = wait.until(driver -> {
+            List<WebElement> elements = driver.findElements(By.cssSelector("div.tc-fg-item"));
+            if (elements.size() >= 0) {
+                // 根据样式特征验证第一个元素
+                return elements.get(1);
+            }
+            return null;
+        });
+
+        // 获取背景图片URL
+        String backgroundImage = targetElement.getCssValue("background-image");
+
+        // 提取纯净URL
+        return backgroundImage.replaceAll("^url\\(\"|\"\\)$", "").replace("&quot;", "\"");
+    }
+
+    public void cropImage(File sourceImage, File outputFile) throws Exception {
+        // CSS参数（从元素获取）
+        double bgPosX = -70.8333;
+        double bgPosY = -247.917;
+        double bgWidth = 345.06;
+        double bgHeight = 313.69;
+        double elementWidth = 60.7143;
+        double elementHeight = 60.7143;
+
+        // 加载原始图片
+        BufferedImage original = ImageIO.read(sourceImage);
+
+        // 计算实际裁剪坐标（考虑背景尺寸与图片实际尺寸的比例）
+        double scaleX = original.getWidth() / bgWidth;
+        double scaleY = original.getHeight() / bgHeight;
+
+        // 转换背景定位坐标到实际像素坐标
+        int actualX = (int) Math.round(-bgPosX * scaleX);
+        int actualY = (int) Math.round(-bgPosY * scaleY);
+
+        // 计算实际裁剪尺寸
+        int cropWidth = (int) Math.round(elementWidth * scaleX);
+        int cropHeight = (int) Math.round(elementHeight * scaleY);
+
+        // 边界检查
+        actualX = Math.max(0, Math.min(actualX, original.getWidth() - cropWidth));
+        actualY = Math.max(0, Math.min(actualY, original.getHeight() - cropHeight));
+
+        // 执行裁剪
+        BufferedImage cropped = original.getSubimage(
+                actualX,
+                actualY,
+                cropWidth,
+                cropHeight
+        );
+
+        // 保存结果
+        ImageIO.write(cropped, "jpg", outputFile);
+    }
 }
 

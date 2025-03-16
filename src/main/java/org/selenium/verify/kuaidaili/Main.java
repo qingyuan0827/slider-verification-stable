@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.concurrent.*;
 
 public class Main {
-    private static final int maxTry = 100;
+    private static final int maxTry = 5;
     private static final String logDir = System.getProperty("user.dir") + File.separator + "logs" + File.separator;
 
     //private static String resultFilePath = logDir + "result.xlsx";
@@ -40,7 +40,7 @@ public class Main {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10, threadFactory);
 
         // 提交任务，每隔 10 秒开始执行一个任务
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 1; i++) {
             ScheduledFuture<Void> future = scheduler.schedule(new Task(i), i * 10, TimeUnit.SECONDS);
             //future.get(); // 等待任务完成（可选）
         }

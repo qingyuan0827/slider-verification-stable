@@ -1,4 +1,4 @@
-package org.selenium.verify.chuanglan;
+package org.selenium.verify.ipfoxy;
 
 import org.selenium.verify.common.XlsxGenerator;
 import org.slf4j.MDC;
@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.concurrent.*;
 
 public class Main {
-    private static final int maxTry = 250;
+    private static final int maxTry = 2;
     private static final String logDir = System.getProperty("user.dir") + File.separator + "logs" + File.separator;
 
     //private static String resultFilePath = logDir + "result.xlsx";

@@ -1,4 +1,4 @@
-package org.selenium.verify.kuaidaili;
+package org.selenium.verify.huawei;
 
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +9,9 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.selenium.verify.common.APIClient;
+import org.selenium.verify.exception.TooManyAccessException;
+import org.selenium.verify.exception.VerificationException;
+import org.selenium.verify.websites.Huawei;
 
 import java.io.Closeable;
 import java.io.File;
@@ -16,14 +19,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.*;
 
 @Slf4j
-public class SliderAutomatic implements Closeable {
-
-    private WebDriver driver;
+public class SliderAutomatic extends Huawei implements Closeable{
 
     private JavascriptExecutor js;
 
@@ -31,7 +31,7 @@ public class SliderAutomatic implements Closeable {
     CrackSlider cs;
 
     // 浏览器缓存地址
-    private String browserTempDirect = "C:\\Users\\yuan\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\kuaidaili";
+    private String browserTempDirect = "C:\\Users\\yuan\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\huawei";
 
     String bgImgDir;
     long startTime;
@@ -46,10 +46,14 @@ public class SliderAutomatic implements Closeable {
     private static int accessFrequencyErrorCount;
 
     private int vcodeBtnDisableCheckedCount;
-    private String targetUrl = "https://www.kuaidaili.com/regist/";
+    private String targetUrl = "https://id1.cloud.huawei.com/CAS/portal/loginAuth.html";
 
-    public SliderAutomatic(int maxCount, String logDir) {
+    public SliderAutomatic(int maxCount, String logDir) throws IOException {
+        super();
         bgImgDir = logDir + "img_" + Thread.currentThread().getName() + File.separator;
+        backgroundImg = bgImgDir + "img1.jpg";
+        slideImg = bgImgDir + "img2.jpg";
+        Files.createDirectories(Path.of(backgroundImg).getParent());  // 创建 img 目录
         this.maxCount = maxCount;
         this.apiClient = new APIClient();
         this.cs = new CrackSlider();
@@ -168,6 +172,7 @@ public class SliderAutomatic implements Closeable {
 
         log.info("设置请求头完成");
         driver = new ChromeDriver(options);
+        wait = new WebDriverWait(driver, Duration.ofSeconds(6));
         driver.manage().window().maximize();
         js = (JavascriptExecutor) driver;
         js.executeScript("window.scrollTo(1,100)");
@@ -186,78 +191,69 @@ public class SliderAutomatic implements Closeable {
 
     private void inputTelNumber() throws Exception {
 
-        driver.switchTo().defaultContent();
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
+        initLoginButton();
+        if(loginButton!=null){
+            loginButton.click();
+        }
 
-        // 找到并点击下拉框以展开选项
-        WebElement dropdownElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.className("select")
-        ));
-        dropdownElement.click();
-        Thread.sleep(1000);
-        // 等待下拉选项加载完成（可以使用显式等待）
-        WebElement panel = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.className("popover2")
-        ));
+        initInput();
+        if(input!=null){
+            if (Strings.isNullOrEmpty(fetchedNumber)) {
+                fetchedNumber = apiClient.fetchPhoneNumber();
+                fetchNumberCount++;
+            }
+            input.sendKeys(Keys.CONTROL + "a");
+            Thread.sleep(1000);
+            input.sendKeys(Keys.DELETE);
+            Thread.sleep(1000);
+            input.sendKeys(fetchedNumber);
+            log.info("输入手机号: " + fetchedNumber);
+        }
 
-        // 找到并点击“855”选项
-        // 在面板中查找目标选项（柬埔寨）
-        WebElement option = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.xpath("//li[.//span[contains(text(), 'Cambodia')]]")
-        ));
-        // 点击选项
-        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", option);
-        Thread.sleep(1000);
+        initArea();
+        if(area != null){
+            area.click();
+        }
 
-        // 定位手机号输入框元素并输入内容
-        WebElement phoneElement = driver.findElement(By.className("register-input"));
-        //if (Strings.isNullOrEmpty(fetchedNumber)) {
-            fetchedNumber = apiClient.fetchPhoneNumber();
-            fetchNumberCount++;
-        //}
-        //String number = apiClient.fetchWithExistedNumber("383429409");
-        // 使用键盘操作清空输入框内容
-        phoneElement.sendKeys(Keys.CONTROL + "a");
-        Thread.sleep(1000);
-        phoneElement.sendKeys(Keys.DELETE);
-        Thread.sleep(1000);
-        phoneElement.sendKeys(fetchedNumber);
-        log.info("输入手机号: " + fetchedNumber);
+        Thread.sleep(1000L);
+        initJianpuzhai();
+        if(jianpuzhai!=null){
+            jianpuzhai.click();
+        }
 
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(1));
+        initPrivacyCheckBox();
+        if(privacyCheckBox!=null){
+            privacyCheckBox.click();
+        }
+        // initNextButton();
     }
 
     private void openSliderFrame() throws Exception {
         // 定位“获取验证码”链接并点击
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
-        WebElement getCodeElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.id("sendvcode_btn")
-        ));        // 检查按钮是否被禁用
+        WebElement getCodeElement = initElementByText("span","获取验证码");
         while (getCodeElement.getAttribute("disabled") != null) {
             vcodeBtnDisableCheckedCount++;
             log.info("按钮被禁用，等待1分钟");
             Thread.sleep(60000); // 等待1分钟
-            getCodeElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                    By.id("sendvcode_btn")
-            ));        }
+            getCodeElement = initElementByText("span","获取验证码");
+        }
         getCodeElement.click();
         Thread.sleep(1000);
         log.info("点击获取验证码链接");
 
-        try {
-            // 使用显式等待，等待 iframe 元素出现
-            WebElement modalElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                    By.cssSelector("div.layui-layer.layui-layer-page")
-            ));
-            // 切换到 iframe
-            //driver.switchTo().frame(iframeElement);
-            if (accessFrequencyErrorCount > 0) {
-                log.info("重新正常执行，检测到访问太频繁错误信息" + accessFrequencyErrorCount + "次。");
-                accessFrequencyErrorCount = 0;
-            }
-        } catch (TimeoutException e) {
-            log.info("无需滑动校验!", e);
-        }
+//        try {
+//            // 使用显式等待，等待 iframe 元素出现
+//            iFrame = initElementByClass("div", "yidun_modal__wrap");
+//            // 切换到 iframe
+//            //driver.switchTo().frame(iframeElement);
+//            if (accessFrequencyErrorCount > 0) {
+//                log.info("重新正常执行，检测到访问太频繁错误信息" + accessFrequencyErrorCount + "次。");
+//                accessFrequencyErrorCount = 0;
+//            }
+//        } catch (TimeoutException e) {
+//            log.info("无需滑动校验!", e);
+//        }
     }
 
     private void closeRegistrationWindow() {
@@ -303,82 +299,41 @@ public class SliderAutomatic implements Closeable {
                 Thread.sleep(retryCount == 1 ? 3000 : 2000); // 第一次重试等待3秒，第二次等待2秒
                 return fetchVerifyCode(retryCount - 1); // 递归调用，减少重试次数
             }
-        } catch (InterruptedException e) {
-            // 处理线程被中断的情况
-            e.printStackTrace();
-            return false;
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            fetchVerifyCode(retryCount - 1);
+            return false;
+            //throw new RuntimeException(e);
         }
     }
 
 
     private boolean doSliderVerification() throws Exception {
+        WebElement currentIframe = null;
         while (true) {
             try {
-                // 等待页面加载完成
-                WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-                WebElement element = driver.findElement(By.cssSelector("div.layui-layer.layui-layer-page"));
-
-                // 定位背景图片的 <canvas> 元素
-                WebElement canvasElement = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("div#captcha canvas:first-child")));
-                WebElement sliceElement = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("div#captcha canvas.block")));
-
-                // 使用 JavaScript 将 <canvas> 转换为 Base64 图片数据
-                String script = "return arguments[0].toDataURL('image/png').substring(22);";
-                String base64Image = (String) js.executeScript(script, canvasElement);
-                String base64ImageSlice = (String) js.executeScript(script, sliceElement);
-
-                // 检查 Base64 数据是否有效
-                if (base64Image == null || base64Image.isEmpty() || base64ImageSlice == null || base64ImageSlice.isEmpty()) {
-                    log.error("Base64 数据为空");
-                    return false;
-                }
-
-                // 将 Base64 数据解码为图片文件
-                byte[] imageBytes = Base64.getDecoder().decode(base64Image);
-                byte[] imageSliceBytes = Base64.getDecoder().decode(base64ImageSlice);
-
-                if (imageBytes == null || imageBytes.length == 0 || imageSliceBytes == null || imageSliceBytes.length == 0) {
-                    log.error("Base64 解码失败");
-                    return false;
-                }
-
-                String img1Path = bgImgDir + "img1.jpg";
-                String img2Path = bgImgDir + "img2.jpg";
-                Files.createDirectories(Path.of(img1Path).getParent());  // 创建 img 目录
-                try (FileOutputStream fos = new FileOutputStream(img1Path)) {
-                    fos.write(imageBytes);
-                }
-                try (FileOutputStream fos = new FileOutputStream(img2Path)) {
-                    fos.write(imageSliceBytes);
-                }
-
-                // 去掉透明区域
-                cs.removeTransparentArea(img2Path,img2Path);
-
-                getSliderImage(canvasElement);
-            } catch (NoSuchElementException e) {
-                // 检查是否存在“访问太频繁，请稍后再试”的错误信息
-                WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(6));
-                WebElement errorElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                        By.cssSelector("span#vcode_err")
-                ));
-                if (errorElement.isDisplayed()) {
-                    if (++accessFrequencyErrorCount % 3 == 0) {
-                        throw new Exception("访问太频繁，请稍后再试。");
-                    } else {
-                        int waitMills = 1000 * 60 * 5;
-                        //int waitMills = 1000 * 3; // 手工切换热点ip，则无需等待太长时间
-                        log.info("检测到访问太频繁错误信息" + accessFrequencyErrorCount + "次，等待" + waitMills/1000
-                                + "秒，已完成滑动验证" + successCount + "/" + tryCount + "。");
-                        // 可以在这里添加适当的处理逻辑，比如等待一段时间后重试
-                        Thread.sleep(waitMills); // 等待5分支后重试
-                        openSliderFrame();
-                    }
-                } else {
-                    log.info("滑动校验通过!", e);
+                doSlide();
+                // 使用显式等待，等待 iframe 元素出现
+                currentIframe = initElementByClass("div", "yidun_modal__wrap");
+                //Thread.sleep(6000L);
+                verifySlideResult();
+            } catch (TimeoutException e){
+                if(currentIframe == null){
+                    log.info("滑动校验通过!");
                     return fetchVerifyCode(1); // 最多重试两次
+                }
+                currentIframe = null;
+            } catch (TooManyAccessException e) {
+                // 检查是否存在“访问太频繁，请稍后再试”的错误信息
+                if (++accessFrequencyErrorCount % 3 == 0) {
+                    throw new Exception("访问太频繁，请稍后再试。");
+                } else {
+                    int waitMills = 1000 * 60 * 5;
+                    //int waitMills = 1000 * 3; // 手工切换热点ip，则无需等待太长时间
+                    log.info("检测到访问太频繁错误信息" + accessFrequencyErrorCount + "次，等待" + waitMills/1000
+                            + "秒，已完成滑动验证" + successCount + "/" + tryCount + "。");
+                    // 可以在这里添加适当的处理逻辑，比如等待一段时间后重试
+                    Thread.sleep(waitMills); // 等待5分支后重试
+                    openSliderFrame();
                 }
                 //close();
             }

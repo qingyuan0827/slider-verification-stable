@@ -99,7 +99,14 @@ public class SliderAutomatic implements Closeable {
                 successCount++;
                 totalSuccessCount++;
             } else {
-                log.info("获取短信验证码失败!");
+                // 同一个号码多次失败，则不继续尝试
+                if (tryCount % 2 == 0) {
+                    fetchedNumber = "";
+                }
+                int waitMills = 1000 * 60 * 5;
+                // 获取验证码失败，休眠1分钟
+                log.info("获取短信验证码失败，等待" + waitMills/1000 + "秒!");
+                Thread.sleep(waitMills);
             }
             long elapsedSec = (System.currentTimeMillis() - startTime) / 1000;
             long elapsedMin = elapsedSec / 60;
@@ -131,8 +138,8 @@ public class SliderAutomatic implements Closeable {
         String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
         options.addArguments("--user-agent=" + userAgent);
         options.addArguments("--disable-gpu");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--no-sandbox");
+//        options.addArguments("--disable-dev-shm-usage");
+//        options.addArguments("--no-sandbox");
         //options.addArguments("--single-process");
         //options.addArguments("--disable-setuid-sandbox");
         // 启用自动化扩展
@@ -284,12 +291,10 @@ public class SliderAutomatic implements Closeable {
                 Thread.sleep(retryCount == 1 ? 3000 : 2000); // 第一次重试等待3秒，第二次等待2秒
                 return fetchVerifyCode(retryCount - 1); // 递归调用，减少重试次数
             }
-        } catch (InterruptedException e) {
-            // 处理线程被中断的情况
-            e.printStackTrace();
-            return false;
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            fetchVerifyCode(retryCount - 1);
+            return false;
+            //throw new RuntimeException(e);
         }
     }
 

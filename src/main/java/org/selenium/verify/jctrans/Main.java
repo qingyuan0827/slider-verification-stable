@@ -1,4 +1,4 @@
-package org.selenium.verify.chuanglan;
+package org.selenium.verify.jctrans;
 
 import org.selenium.verify.common.XlsxGenerator;
 import org.slf4j.MDC;
@@ -39,7 +39,7 @@ public class Main {
         // 创建一个调度线程池
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10, threadFactory);
 
-        // 提交任务，每隔 10 秒开始执行一个任务
+        // 提交任务，每隔 3 秒开始执行一个任务
         for (int i = 0; i < 1; i++) {
             ScheduledFuture<Void> future = scheduler.schedule(new Task(i), i * 10, TimeUnit.SECONDS);
             //future.get(); // 等待任务完成（可选）
